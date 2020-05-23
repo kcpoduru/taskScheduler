@@ -1,0 +1,9 @@
+osScheduler.c:18:29:initSchedulerStack	0	static,ignoring_inline_asm
+osScheduler.c:26:6:initTaskStack	24	static
+osScheduler.c:59:6:enableProcesorFaults	16	static
+osScheduler.c:67:10:getCurrentPSPValue	4	static
+osScheduler.c:73:30:switchSPToPSP	0	static,ignoring_inline_asm
+osScheduler.c:88:6:savePSPValue	16	static
+osScheduler.c:93:6:updateNextTask	4	static
+osScheduler.c:103:6:SysTick_Handler	8	static,ignoring_inline_asm
+osScheduler.c:141:6:PendSV_Handler	4	static

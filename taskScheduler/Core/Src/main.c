@@ -23,7 +23,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include <string.h>
+#include <stdint.h>
+#include "osScheduler.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,19 +40,6 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define SIZE_TASK_STACK						1024U
-#define SIZE_SCHED_STACK					1024U
-
-#define SRAM_START							0x20000000U
-#define SIZE_SRAM							(192U * 1024U)
-#define SRAM_END							SRAM_START + SIZE_SRAM
-
-#define T1_STACK_START						(SRAM_END)
-#define T2_STACK_START						(T1_STACK_START - SIZE_TASK_STACK)
-#define T3_STACK_START						(T2_STACK_START - SIZE_TASK_STACK)
-#define T4_STACK_START						(T3_STACK_START - SIZE_TASK_STACK)
-#define SCHED_TASK_START					(T4_STACK_START - SIZE_TASK_STACK)
-
 
 /* USER CODE END PM */
 
@@ -62,10 +52,6 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-void task1_handler(void);
-void task2_handler(void);
-void task3_handler(void);
-void task4_handler(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -80,6 +66,11 @@ void task4_handler(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+	enableProcesorFaults();
+
+	initSchedulerStack(SCHED_TASK_START);
+
+	initTaskStack();
 
   /* USER CODE END 1 */
 
@@ -106,6 +97,11 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+  switchSPToPSP();
+
+  task1_handler();
+
   while (1)
   {
     /* USER CODE END WHILE */
@@ -198,6 +194,11 @@ void task4_handler(void)
 
 	}
 }
+
+
+
+
+
 /* USER CODE END 4 */
 
 /**
