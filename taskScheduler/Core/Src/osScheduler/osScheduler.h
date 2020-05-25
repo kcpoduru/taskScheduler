@@ -23,14 +23,27 @@
 #define SRAM_END							SRAM_START + SIZE_SRAM
 
 
-#define MAX_TASKS							4
+#define MAX_TASKS							5
 #define T1_STACK_START						(SRAM_END)
 #define T2_STACK_START						(T1_STACK_START - SIZE_TASK_STACK)
 #define T3_STACK_START						(T2_STACK_START - SIZE_TASK_STACK)
 #define T4_STACK_START						(T3_STACK_START - SIZE_TASK_STACK)
-#define SCHED_TASK_START					(T4_STACK_START - SIZE_TASK_STACK)
+#define IDLE_TASK_STACK_START				(T4_STACK_START - SIZE_TASK_STACK)
+#define SCHED_TASK_START					(IDLE_TASK_STACK_START - SIZE_TASK_STACK)
 
 #define DUMMY_XPSR							0x01000000U
+
+#define TASK_READY_STATE					0x00
+#define TASK_BLOCKED_STATE					0xFF
+
+#define PENDSV_BIT_LOCATION					28
+
+typedef struct{
+	uint32_t pspValue;
+	uint32_t blockCount;
+	uint8_t currentState;
+	void (*taskHandler)(void);
+}TCB_t;
 
 
 
@@ -39,5 +52,8 @@ void initTaskStack(void);
 void __attribute__((naked)) initSchedulerStack(uint32_t stackLocation);
 void enableProcesorFaults(void);
 void __attribute__((naked)) switchSPToPSP(void);
+void taskDelay(uint32_t tickCount); //in milli seconds. This function cannot be used in the idle task
+void idleTask_Handler(void);
+void scheduleNextTask(void);
 
 #endif /* SRC_OSSCHEDULER_OSSCHEDULER_H_ */

@@ -165,7 +165,7 @@ void task1_handler(void)
 {
 	while(1)
 	{
-
+		taskDelay(1000);
 	}
 }
 
@@ -173,7 +173,7 @@ void task2_handler(void)
 {
 	while(1)
 	{
-
+		taskDelay(1000);
 	}
 
 }
@@ -182,7 +182,7 @@ void task3_handler(void)
 {
 	while(1)
 	{
-
+		taskDelay(1000);
 	}
 
 }
@@ -191,7 +191,7 @@ void task4_handler(void)
 {
 	while(1)
 	{
-
+		taskDelay(1000);
 	}
 }
 

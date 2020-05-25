@@ -9,11 +9,11 @@
 
 
 
-uint32_t pspOfTasks[MAX_TASKS]  = {T1_STACK_START,T2_STACK_START,T3_STACK_START,T4_STACK_START};
-uint32_t taskHandlerAdresses[MAX_TASKS] = {(uint32_t)task1_handler,(uint32_t)task2_handler,(uint32_t)task3_handler,(uint32_t)task4_handler};
-uint8_t currentTask = 0;
+uint32_t pspOfTasks[MAX_TASKS]  = {IDLE_TASK_STACK_START,T1_STACK_START,T2_STACK_START,T3_STACK_START,T4_STACK_START};
+uint32_t taskHandlerAdresses[MAX_TASKS] = {(uint32_t)idleTask_Handler, (uint32_t)task1_handler,(uint32_t)task2_handler,(uint32_t)task3_handler,(uint32_t)task4_handler};
+uint8_t currentTask = 1;
 
-
+TCB_t userTasks[MAX_TASKS];
 
 void __attribute__((naked)) initSchedulerStack(uint32_t stackLocation)
 {
@@ -26,17 +26,24 @@ void __attribute__((naked)) initSchedulerStack(uint32_t stackLocation)
 void initTaskStack(void)
 {
 
+	for(int i = 0 ; i < MAX_TASKS ; i ++)
+	{
+		userTasks[i].currentState = TASK_READY_STATE;
+		userTasks[i].pspValue = pspOfTasks[i];
+		userTasks[i].taskHandler = (void *)taskHandlerAdresses[i];
+	}
+
 	uint32_t *pPSP;
 
 	for(int i = 0 ; i < MAX_TASKS ; i++)
 	{
-		pPSP = (uint32_t *)pspOfTasks[i];
+		pPSP = (uint32_t *)userTasks[i].pspValue;
 		pPSP--;
 		*pPSP = DUMMY_XPSR; //0x01000000 for enabling the T bit
 
 
 		pPSP--; // PC
-		*pPSP = taskHandlerAdresses[i];
+		*pPSP = (uint32_t)userTasks[i].taskHandler;
 
 
 		pPSP--; //LR
@@ -49,7 +56,7 @@ void initTaskStack(void)
 			*pPSP = 0;
 		}
 
-		pspOfTasks[i] = (uint32_t)pPSP;
+		userTasks[i].pspValue = (uint32_t)pPSP;
 
 	}
 
@@ -66,9 +73,14 @@ void enableProcesorFaults(void)
 
 uint32_t getCurrentPSPValue(void)
 {
-	return pspOfTasks[currentTask];
+	return userTasks[currentTask].pspValue;
 }
 
+
+void idleTask_Handler(void)
+{
+	while(1);
+}
 
 void __attribute__((naked))  switchSPToPSP(void)
 {
@@ -87,15 +99,50 @@ void __attribute__((naked))  switchSPToPSP(void)
 
 void savePSPValue(uint32_t currentTaskAddress)
 {
-	pspOfTasks[currentTask] = currentTaskAddress;
+	userTasks[currentTask].pspValue = currentTaskAddress;
 }
 
 void updateNextTask(void)
 {
-	currentTask++;
-	currentTask %= MAX_TASKS;
+	int state = TASK_BLOCKED_STATE;
+	for(int i = 0 ; i < MAX_TASKS ; i++)
+	{
+		currentTask++;
+		currentTask %= MAX_TASKS;
+		state = userTasks[currentTask].currentState;
+		if((state == TASK_READY_STATE) && (currentTask != 0)) break;
+	}
+	if(state != TASK_READY_STATE) currentTask = 0;
 }
 
+
+void taskDelay(uint32_t tickCount)
+{
+	if(currentTask) // you must not block the idle task
+	{
+		userTasks[currentTask].blockCount = uwTick + tickCount;
+		userTasks[currentTask].currentState = TASK_BLOCKED_STATE;
+		scheduleNextTask();
+	}
+}
+
+void unblockTasksIfConditionMet(void)
+{
+	for(int i = 1; i < MAX_TASKS ; i++)
+	{
+		if(userTasks[i].currentState)
+		{
+			if(userTasks[i].blockCount < uwTick) userTasks[i].currentState = TASK_READY_STATE;
+		}
+	}
+
+}
+
+void scheduleNextTask(void)
+{
+	 uint32_t *pICSR = (uint32_t *)0xE000ED04;
+	 *pICSR |= (1<< PENDSV_BIT_LOCATION);
+}
 
 /**
   * @brief This function handles System tick timer.
@@ -103,10 +150,28 @@ void updateNextTask(void)
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
-
+	 uint32_t *pICSR = (uint32_t *)0xE000ED04;
   /* USER CODE END SysTick_IRQn 0 */
-  HAL_IncTick();
+	 HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
+	 unblockTasksIfConditionMet();
+
+	 //pend the pendSV interrupt
+	 *pICSR |= (1<< PENDSV_BIT_LOCATION);
+  /* USER CODE END SysTick_IRQn 1 */
+}
+
+
+
+/**
+  * @brief This function handles Pendable request for system service.
+  */
+void __attribute__((naked)) PendSV_Handler(void)
+{
+  /* USER CODE BEGIN PendSV_IRQn 0 */
+  __asm volatile("PUSH {LR}"); //save the LR because it will be corrupted in the next instructions
+  /* USER CODE END PendSV_IRQn 0 */
+  /* USER CODE BEGIN PendSV_IRQn 1 */
   /*
    * First save the context of current task
    */
@@ -114,6 +179,7 @@ void SysTick_Handler(void)
   __asm volatile("MRS R0, PSP");
   //2. Using the PSP value store SF2(r4 to r11)
   __asm volatile("STMDB R0!, {R4-R11}");
+
   //3. save the current value of PSP
   __asm volatile("BL savePSPValue");
   /*
@@ -128,23 +194,9 @@ void SysTick_Handler(void)
   //4. update PSP and exit
   __asm volatile("MSR PSP, R0");
 
+  __asm volatile("POP {LR}");
 
-
-  /* USER CODE END SysTick_IRQn 1 */
-}
-
-
-
-/**
-  * @brief This function handles Pendable request for system service.
-  */
-void PendSV_Handler(void)
-{
-  /* USER CODE BEGIN PendSV_IRQn 0 */
-
-  /* USER CODE END PendSV_IRQn 0 */
-  /* USER CODE BEGIN PendSV_IRQn 1 */
-
+  __asm volatile("BX LR");
   /* USER CODE END PendSV_IRQn 1 */
 }
 
