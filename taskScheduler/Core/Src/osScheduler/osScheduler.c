@@ -116,14 +116,19 @@ void updateNextTask(void)
 }
 
 
+
 void taskDelay(uint32_t tickCount)
 {
+	INTERRUPT_DISABLE
+
 	if(currentTask) // you must not block the idle task
 	{
 		userTasks[currentTask].blockCount = uwTick + tickCount;
 		userTasks[currentTask].currentState = TASK_BLOCKED_STATE;
 		scheduleNextTask();
 	}
+
+	INTERRUPT_ENABLE
 }
 
 void unblockTasksIfConditionMet(void)

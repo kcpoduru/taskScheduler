@@ -38,6 +38,9 @@
 
 #define PENDSV_BIT_LOCATION					28
 
+#define INTERRUPT_DISABLE   				do {__asm volatile("MOV R0,#0x01"); __asm volatile("MSR PRIMASK, R0"); } while(0);
+#define INTERRUPT_ENABLE   					do {__asm volatile("MOV R0,#0x00"); __asm volatile("MSR PRIMASK, R0"); } while(0);
+
 typedef struct{
 	uint32_t pspValue;
 	uint32_t blockCount;
